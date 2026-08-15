@@ -69,5 +69,5 @@ Currently implementing the baseline 5-stage pipeline without hazard detection or
 ```text
 rtl/      RTL implementation
 tb/       Testbenches
-docs/     Architecture and design documentation
-sim/      Simulation-related files
+documentation/     Architecture and design documentation
+
