@@ -67,7 +67,7 @@ Currently implementing the baseline 5-stage pipeline without hazard detection or
 ## Repository Structure
 
 ```text
-rtl/      RTL implementation
-tb/       Testbenches
+rtl/               RTL implementation
+tb/                Testbenches
 documentation/     Architecture and design documentation
 
