@@ -1,4 +1,6 @@
-module () ;
+module fp32_multiplier(a , b , result);
+input  [31:0]  a , b;
+output [31:0] result;
 // unpacking 
 wire sign_a, sign_b;
 wire [7:0] exp_a, exp_b;
@@ -38,13 +40,13 @@ always @(*)
                 exp_large = exp_b;
                 exp_diff = exp_b - exp_a;
                 mantissa_large =  mantissa_b;
-                mantissa_small_aligned = mantissa_b >> exp_diff;
+                mantissa_small_aligned = mantissa_a >> exp_diff;
                 sign_large = sign_b;
             end   
         else 
             begin
                 // same exponent 
-                exp_large = exp_a
+                exp_large = exp_a;
                 exp_diff = 0 ;
                 if(mantissa_a > mantissa_b)
                     begin
@@ -63,10 +65,12 @@ always @(*)
 // decide add / sub
 reg [24:0] mantissa_result;
 reg result_sign;
+reg do_sub;
 always @(*)
     begin
         if(sign_a == sign_b) // add
             begin
+                do_sub = 1'b0; // not a substraction
                 mantissa_result = {1'b0 , mantissa_large} + { 1'b0 ,mantissa_small_aligned} ;
                 result_sign = sign_a;
             end
@@ -76,7 +80,75 @@ always @(*)
                  result_sign = sign_large;
             end
     end
-//pack
-result_fraction = normalized_mantissa[22:0];
-assign result = { result_sign , result_exp , result_fraction};    
+
+// ============================================================
+// NORMALIZATION
+// ============================================================
+
+reg [7:0] result_exp;
+
+reg [23:0] normalized_mantissa;
+
+always @(*) begin
+
+    // Default values
+
+    result_exp = exp_large;
+
+    normalized_mantissa = mantissa_result[23:0];
+
+
+    // --------------------------------------------------------
+    // ADDITION NORMALIZATION
+    // --------------------------------------------------------
+
+    if (!do_sub) begin
+
+        if (mantissa_result[24] == 1'b1) begin
+
+            // 10.xxxxx → 1.xxxxx
+
+            normalized_mantissa =
+                mantissa_result[24:1];
+
+            result_exp =
+                exp_large + 1;
+
+        end
+
+    end
+
+
+    // --------------------------------------------------------
+    // SUBTRACTION NORMALIZATION
+    // --------------------------------------------------------
+
+    else begin
+
+        // 0.xxxxx → 1.xxxxx
+
+        while ((normalized_mantissa != 0) &&
+               (normalized_mantissa[23] == 1'b0)) begin
+
+            normalized_mantissa =
+                normalized_mantissa << 1;
+
+            result_exp =
+                result_exp - 1;
+
+        end
+
+    end
+
+end
+
+
+// ============================================================
+// PACKING
+// ============================================================
+
+wire [22:0] result_fraction;
+
+assign result_fraction =  normalized_mantissa[22:0];
+assign result = { result_sign, result_exp, result_fraction};  
 endmodule
