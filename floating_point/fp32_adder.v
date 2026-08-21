@@ -1,51 +1,82 @@
-module fp32_adder(a , b , result)
-input [31:0]  a , b;
-output [31:0] result;
- 
-// sign exponent mantisa
-wire sign_a , sign_b , result_sign  ;
-wire [7: 0] exp_a , exp_b , result_exp ;
-wire [22: 0] fraction_a , fraction_b, result_fraction;
-wire [23: 0] mantissa_a , mantissa_b;
+module () ;
+// unpacking 
+wire sign_a, sign_b;
+wire [7:0] exp_a, exp_b;
+wire [22:0] fraction_a, fraction_b;
+wire [23:0] mantissa_a, mantissa_b;
 
 assign sign_a = a[31];
 assign sign_b = b[31];
 
-assign exp_a = a[30 : 23];
-assign exp_b = b[30 : 23];
+assign exp_a = a[30:23];
+assign exp_b = b[30:23];
 
-assign fraction_a = a[22 : 0];
-assign fraction_b = b[22 : 0];
+assign fraction_a = a[22:0];
+assign fraction_b = b[22:0];
 
-assign mantissa_a = { 1'b1 , fraction_a};
-assign mantissa_b = { 1'b1 , fraction_b};
+assign mantissa_a = {1'b1, fraction_a};
+assign mantissa_b = {1'b1, fraction_b};
+// larger operand and align
+reg [7:0] exp_large;
+reg [7:0] exp_diff;
+reg [23:0] mantissa_large;
+reg [23:0] mantissa_small_aligned;
+reg sign_large;
 
-reg [7:0] exp_large  , exp_diff;
-reg [23:0] mantissa_large , mantissa_small_aligned;
 always @(*)
-begin
-  if(exp_a >= exp_b)
     begin
-        exp_diff = exp_a - exp_b;
-        exp_large = exp_a;
-        mantissa_large = mantissa_a;
-        mantissa_small_aligned = mantissa_b >> exp_diff;
+        if(exp_a > exp_b)
+            begin
+                exp_large = exp_a;
+                exp_diff = exp_a - exp_b;
+                mantissa_large =  mantissa_a;
+                mantissa_small_aligned = mantissa_b >> exp_diff;
+                sign_large = sign_a;
+            end
+        else if(exp_a < exp_b)
+            begin
+                exp_large = exp_b;
+                exp_diff = exp_b - exp_a;
+                mantissa_large =  mantissa_b;
+                mantissa_small_aligned = mantissa_b >> exp_diff;
+                sign_large = sign_b;
+            end   
+        else 
+            begin
+                // same exponent 
+                exp_large = exp_a
+                exp_diff = 0 ;
+                if(mantissa_a > mantissa_b)
+                    begin
+                        mantissa_large = mantissa_a;
+                        mantissa_small_aligned = mantissa_b;
+                        sign_large = sign_a;
+                    end
+                else
+                    begin
+                            mantissa_large = mantissa_b;
+                            mantissa_small_aligned = mantissa_a;
+                            sign_large = sign_b;
+                    end    
+            end    
     end
-else
+// decide add / sub
+reg [24:0] mantissa_result;
+reg result_sign;
+always @(*)
     begin
-        exp_diff = exp_b - exp_a;
-        exp_large = exp_b;
-        mantissa_large = mantissa_b;
-        mantissa_small_aligned = mantissa_a >> exp_diff;
+        if(sign_a == sign_b) // add
+            begin
+                mantissa_result = {1'b0 , mantissa_large} + { 1'b0 ,mantissa_small_aligned} ;
+                result_sign = sign_a;
+            end
+        else // sub
+            begin
+                 mantissa_result = {1'b0 , mantissa_large} - { 1'b0 ,mantissa_small_aligned} ;
+                 result_sign = sign_large;
+            end
     end
-end
-
-assign result_sign = sign_a > sign_b ? sign_a : sign_b ; 
-assign result_exp  =  exp_large;
-
-wire mantissa_sum
-assign mantissa_sum = mantissa_large + mantissa_small_aligned;
-
-assign result = { result_sign , result_exp , result_fraction};
-
+//pack
+result_fraction = normalized_mantissa[22:0];
+assign result = { result_sign , result_exp , result_fraction};    
 endmodule
